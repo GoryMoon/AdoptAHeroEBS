@@ -4,14 +4,13 @@ import (
 	"fmt"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/pkg/errors"
-	"time"
 )
 
-func NewGameJWT(channel string, uuid string, secret []byte) (string, error) {
+func NewGameJWT(channel string, uuid string, issuer string, secret []byte) (string, error) {
 	claims := &jwt.RegisteredClaims{
-		Subject:  channel,
-		IssuedAt: jwt.NewNumericDate(time.Now()),
-		ID:       uuid,
+		Subject: channel,
+		Issuer:  issuer,
+		ID:      uuid,
 	}
 	return jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(secret)
 }

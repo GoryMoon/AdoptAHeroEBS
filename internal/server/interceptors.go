@@ -17,7 +17,8 @@ const (
 	authHeaderPrefix string = "Bearer "
 )
 
-type ContextKeyChannelId struct{}
+type ContextKeyGameClaim struct{}
+type ContextKeyFrontendClaim struct{}
 
 type StreamContextWrapper interface {
 	grpc.ServerStream
@@ -44,6 +45,12 @@ func (w *wrappedContextStream) SetContext(ctx context.Context) {
 func (s *Server) unaryAuthInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
 	start := time.Now()
 
+	if info.FullMethod != "/blt.adoptahero.Frontend/RequestServiceJWT" {
+		if ctx, err = s.authorizeFrontend(ctx); err != nil {
+			return nil, err
+		}
+	}
+
 	h, err := handler(ctx, req)
 
 	log.Info().
@@ -62,7 +69,7 @@ func (s *Server) streamAuthInterceptor(srv interface{}, stream grpc.ServerStream
 
 	w := newWrappedContextStream(stream)
 
-	if err := s.authorize(w); err != nil {
+	if err := s.authorizeGame(w); err != nil {
 		return err
 	}
 
@@ -78,7 +85,32 @@ func (s *Server) streamAuthInterceptor(srv interface{}, stream grpc.ServerStream
 	return err
 }
 
-func (s *Server) authorize(w StreamContextWrapper) error {
+func (s *Server) authorizeFrontend(ctx context.Context) (context.Context, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return ctx, status.Errorf(codes.InvalidArgument, "Retrieving metadata is failed")
+	}
+
+	authHeader, ok := md["authorization"]
+	if !ok {
+		return ctx, status.Errorf(codes.Unauthenticated, "Authorization token is not supplied")
+	}
+
+	token := strings.TrimPrefix(authHeader[0], authHeaderPrefix)
+	claims, err := jwt.VerifyFrontendJWT(token, s.secret)
+
+	if err != nil {
+		return ctx, status.Errorf(codes.Unauthenticated, err.Error())
+	}
+
+	if !claims.VerifyIssuer(s.issuer, true) {
+		return ctx, status.Error(codes.Unauthenticated, "token is invalid")
+	}
+
+	return context.WithValue(ctx, ContextKeyFrontendClaim{}, claims), nil
+}
+
+func (s *Server) authorizeGame(w StreamContextWrapper) error {
 	md, ok := metadata.FromIncomingContext(w.Context())
 	if !ok {
 		return status.Errorf(codes.InvalidArgument, "Retrieving metadata is failed")
@@ -101,10 +133,14 @@ func (s *Server) authorize(w StreamContextWrapper) error {
 		return status.Error(codes.NotFound, err.Error())
 	}
 
+	if !claims.VerifyIssuer(s.issuer, true) {
+		return status.Error(codes.Unauthenticated, "token is invalid")
+	}
+
 	if subtle.ConstantTimeCompare([]byte(claims.ID), []byte(channel.Uuid)) == 0 {
 		return status.Error(codes.Unauthenticated, "token doesn't match")
 	}
 
-	w.SetContext(context.WithValue(w.Context(), ContextKeyChannelId{}, channel.Id))
+	w.SetContext(context.WithValue(w.Context(), ContextKeyGameClaim{}, claims))
 	return nil
 }

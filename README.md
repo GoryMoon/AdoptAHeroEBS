@@ -19,10 +19,14 @@ protoc --proto_path=protos --go_out=internal/protos --go_opt=paths=source_relati
 
 You need to specify the following environment variables:
 * SECRET - Base64 encoded data
+* TWITCH_CLIENT - Your twitch client id
+* TWITCH_SECRET - Your twitch client secret
 
 The following environment variables are optional:
 * HOST - ""
 * PORT - 50051
+* LOG_LEVEL = info
+* ISSUER - gorymoon.se
 
 Build
 ```shell

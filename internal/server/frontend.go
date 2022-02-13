@@ -7,9 +7,28 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorymoon/adoptahero-ebs/internal/jwt"
 	pb "github.com/gorymoon/adoptahero-ebs/internal/protos"
+	"github.com/nicklaw5/helix"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+func (s *Server) RequestServiceJWT(ctx context.Context, msg *pb.RequestJWTMessage) (*pb.JWTResponse, error) {
+	client := s.CreateTwitchClient()
+	client.SetUserAccessToken(msg.Token)
+	users, err := client.GetUsers(&helix.UsersParams{})
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	user := users.Data.Users[0]
+
+	token, err := jwt.NewFrontendJWT(user.DisplayName, user.ID, msg.Token, s.issuer, s.secret)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	return &pb.JWTResponse{
+		Token: token,
+	}, nil
+}
 
 func (s *Server) GetHeroData(_ context.Context, msg *pb.RequestHeroMessage) (*pb.HeroData, error) {
 	key := fmt.Sprintf("%s_%s", msg.GetChannel(), msg.GetName())
@@ -34,13 +53,30 @@ func (s *Server) GetConnectionStatus(_ context.Context, msg *pb.ConnectionStatus
 	}, nil
 }
 
-func (s *Server) RequestGameJWT(_ context.Context, msg *pb.RequestJWTMessage) (*pb.JWTResponse, error) {
-	uuidToken := uuid.NewString()
+func (s *Server) GetGameJWT(ctx context.Context, _ *pb.RequestGameJWTMessage) (*pb.JWTResponse, error) {
+	channelID := GetFrontendClaimFromContext(ctx).Subject
+	channel, err := s.channelStore.GetChannel(channelID)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	token, err := jwt.NewGameJWT(channel.Id, channel.Uuid, s.issuer, s.secret)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	return &pb.JWTResponse{
+		Token: token,
+	}, nil
+}
 
-	channel, err := s.channelStore.GetChannel(msg.Channel)
+func (s *Server) NewGameJWT(ctx context.Context, _ *pb.RequestGameJWTMessage) (*pb.JWTResponse, error) {
+	uuidToken := uuid.NewString()
+	claim := GetFrontendClaimFromContext(ctx)
+
+	channelID := claim.Subject
+	channel, err := s.channelStore.GetChannel(channelID)
 	if err != nil {
 		if err == badger.ErrKeyNotFound {
-			_, err := s.channelStore.NewChannel(msg.GetChannel(), msg.GetName(), uuidToken, false)
+			_, err := s.channelStore.NewChannel(channelID, claim.Name, uuidToken, false)
 			if err != nil {
 				return nil, status.Error(codes.InvalidArgument, err.Error())
 			}
@@ -49,13 +85,13 @@ func (s *Server) RequestGameJWT(_ context.Context, msg *pb.RequestJWTMessage) (*
 		}
 	} else {
 		channel.Uuid = uuidToken
-		err = s.channelStore.SetChannel(msg.GetChannel(), channel)
+		err = s.channelStore.SetChannel(channelID, channel)
 		if err != nil {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
 	}
 
-	token, err := jwt.NewGameJWT(msg.GetChannel(), uuidToken, s.secret)
+	token, err := jwt.NewGameJWT(channelID, uuidToken, s.issuer, s.secret)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}

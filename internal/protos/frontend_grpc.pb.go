@@ -18,9 +18,11 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type FrontendClient interface {
+	RequestServiceJWT(ctx context.Context, in *RequestJWTMessage, opts ...grpc.CallOption) (*JWTResponse, error)
 	GetHeroData(ctx context.Context, in *RequestHeroMessage, opts ...grpc.CallOption) (*HeroData, error)
 	GetConnectionStatus(ctx context.Context, in *ConnectionStatusMessage, opts ...grpc.CallOption) (*ConnectionStatusResponse, error)
-	RequestGameJWT(ctx context.Context, in *RequestJWTMessage, opts ...grpc.CallOption) (*JWTResponse, error)
+	NewGameJWT(ctx context.Context, in *RequestGameJWTMessage, opts ...grpc.CallOption) (*JWTResponse, error)
+	GetGameJWT(ctx context.Context, in *RequestGameJWTMessage, opts ...grpc.CallOption) (*JWTResponse, error)
 }
 
 type frontendClient struct {
@@ -29,6 +31,15 @@ type frontendClient struct {
 
 func NewFrontendClient(cc grpc.ClientConnInterface) FrontendClient {
 	return &frontendClient{cc}
+}
+
+func (c *frontendClient) RequestServiceJWT(ctx context.Context, in *RequestJWTMessage, opts ...grpc.CallOption) (*JWTResponse, error) {
+	out := new(JWTResponse)
+	err := c.cc.Invoke(ctx, "/blt.adoptahero.Frontend/RequestServiceJWT", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *frontendClient) GetHeroData(ctx context.Context, in *RequestHeroMessage, opts ...grpc.CallOption) (*HeroData, error) {
@@ -49,9 +60,18 @@ func (c *frontendClient) GetConnectionStatus(ctx context.Context, in *Connection
 	return out, nil
 }
 
-func (c *frontendClient) RequestGameJWT(ctx context.Context, in *RequestJWTMessage, opts ...grpc.CallOption) (*JWTResponse, error) {
+func (c *frontendClient) NewGameJWT(ctx context.Context, in *RequestGameJWTMessage, opts ...grpc.CallOption) (*JWTResponse, error) {
 	out := new(JWTResponse)
-	err := c.cc.Invoke(ctx, "/blt.adoptahero.Frontend/RequestGameJWT", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/blt.adoptahero.Frontend/NewGameJWT", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *frontendClient) GetGameJWT(ctx context.Context, in *RequestGameJWTMessage, opts ...grpc.CallOption) (*JWTResponse, error) {
+	out := new(JWTResponse)
+	err := c.cc.Invoke(ctx, "/blt.adoptahero.Frontend/GetGameJWT", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -62,9 +82,11 @@ func (c *frontendClient) RequestGameJWT(ctx context.Context, in *RequestJWTMessa
 // All implementations must embed UnimplementedFrontendServer
 // for forward compatibility
 type FrontendServer interface {
+	RequestServiceJWT(context.Context, *RequestJWTMessage) (*JWTResponse, error)
 	GetHeroData(context.Context, *RequestHeroMessage) (*HeroData, error)
 	GetConnectionStatus(context.Context, *ConnectionStatusMessage) (*ConnectionStatusResponse, error)
-	RequestGameJWT(context.Context, *RequestJWTMessage) (*JWTResponse, error)
+	NewGameJWT(context.Context, *RequestGameJWTMessage) (*JWTResponse, error)
+	GetGameJWT(context.Context, *RequestGameJWTMessage) (*JWTResponse, error)
 	mustEmbedUnimplementedFrontendServer()
 }
 
@@ -72,14 +94,20 @@ type FrontendServer interface {
 type UnimplementedFrontendServer struct {
 }
 
+func (UnimplementedFrontendServer) RequestServiceJWT(context.Context, *RequestJWTMessage) (*JWTResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RequestServiceJWT not implemented")
+}
 func (UnimplementedFrontendServer) GetHeroData(context.Context, *RequestHeroMessage) (*HeroData, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetHeroData not implemented")
 }
 func (UnimplementedFrontendServer) GetConnectionStatus(context.Context, *ConnectionStatusMessage) (*ConnectionStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetConnectionStatus not implemented")
 }
-func (UnimplementedFrontendServer) RequestGameJWT(context.Context, *RequestJWTMessage) (*JWTResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method RequestGameJWT not implemented")
+func (UnimplementedFrontendServer) NewGameJWT(context.Context, *RequestGameJWTMessage) (*JWTResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method NewGameJWT not implemented")
+}
+func (UnimplementedFrontendServer) GetGameJWT(context.Context, *RequestGameJWTMessage) (*JWTResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetGameJWT not implemented")
 }
 func (UnimplementedFrontendServer) mustEmbedUnimplementedFrontendServer() {}
 
@@ -92,6 +120,24 @@ type UnsafeFrontendServer interface {
 
 func RegisterFrontendServer(s grpc.ServiceRegistrar, srv FrontendServer) {
 	s.RegisterService(&Frontend_ServiceDesc, srv)
+}
+
+func _Frontend_RequestServiceJWT_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RequestJWTMessage)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FrontendServer).RequestServiceJWT(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/blt.adoptahero.Frontend/RequestServiceJWT",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FrontendServer).RequestServiceJWT(ctx, req.(*RequestJWTMessage))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _Frontend_GetHeroData_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -130,20 +176,38 @@ func _Frontend_GetConnectionStatus_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Frontend_RequestGameJWT_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(RequestJWTMessage)
+func _Frontend_NewGameJWT_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RequestGameJWTMessage)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(FrontendServer).RequestGameJWT(ctx, in)
+		return srv.(FrontendServer).NewGameJWT(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/blt.adoptahero.Frontend/RequestGameJWT",
+		FullMethod: "/blt.adoptahero.Frontend/NewGameJWT",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(FrontendServer).RequestGameJWT(ctx, req.(*RequestJWTMessage))
+		return srv.(FrontendServer).NewGameJWT(ctx, req.(*RequestGameJWTMessage))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Frontend_GetGameJWT_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RequestGameJWTMessage)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FrontendServer).GetGameJWT(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/blt.adoptahero.Frontend/GetGameJWT",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FrontendServer).GetGameJWT(ctx, req.(*RequestGameJWTMessage))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -156,6 +220,10 @@ var Frontend_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*FrontendServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
+			MethodName: "RequestServiceJWT",
+			Handler:    _Frontend_RequestServiceJWT_Handler,
+		},
+		{
 			MethodName: "GetHeroData",
 			Handler:    _Frontend_GetHeroData_Handler,
 		},
@@ -164,8 +232,12 @@ var Frontend_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Frontend_GetConnectionStatus_Handler,
 		},
 		{
-			MethodName: "RequestGameJWT",
-			Handler:    _Frontend_RequestGameJWT_Handler,
+			MethodName: "NewGameJWT",
+			Handler:    _Frontend_NewGameJWT_Handler,
+		},
+		{
+			MethodName: "GetGameJWT",
+			Handler:    _Frontend_GetGameJWT_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

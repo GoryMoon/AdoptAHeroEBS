@@ -5,6 +5,7 @@ import (
 	pb "github.com/gorymoon/adoptahero-ebs/internal/protos"
 	"github.com/gorymoon/adoptahero-ebs/internal/stores"
 	"github.com/gorymoon/adoptahero-ebs/pkg/db"
+	"github.com/nicklaw5/helix"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc"
@@ -15,10 +16,14 @@ type Server struct {
 	port         int
 	host         string
 	secret       []byte
+	issuer       string
+	twitchClient string
+	twitchSecret string
 	kvDV         *db.KvDB
 	channelStore *stores.ChannelStore
 	heroStore    *stores.HeroStore
 	grpcServer   *grpc.Server
+	twitch       *helix.Client
 	pb.UnimplementedGameConnectionServer
 	pb.UnimplementedFrontendServer
 }
@@ -50,10 +55,22 @@ func (s *Server) Shutdown() {
 	s.kvDV.Close()
 }
 
-func CreateNewServer(kvDB *db.KvDB, host string, port int, secret []byte) *Server {
+func (s *Server) CreateTwitchClient() *helix.Client {
+	twitch, err := helix.NewClient(&helix.Options{
+		ClientID:     s.twitchClient,
+		ClientSecret: s.twitchSecret,
+		UserAgent:    "BLT AdoptAHero",
+	})
+	if err != nil {
+		log.Fatal().Str("ctx", "server").Err(err).Send()
+	}
+	return twitch
+}
+
+func CreateNewServer(kvDB *db.KvDB, host string, port int, issuer string, secret []byte, twitchClient string, twitchSecret string) *Server {
 	err := kvDB.Open()
 	if err != nil {
-		log.Fatal().Err(err).Send()
+		log.Fatal().Str("ctx", "server").Err(err).Send()
 	}
 	go kvDB.RunGC()
 
@@ -61,6 +78,9 @@ func CreateNewServer(kvDB *db.KvDB, host string, port int, secret []byte) *Serve
 		host:         host,
 		port:         port,
 		secret:       secret,
+		issuer:       issuer,
+		twitchClient: twitchClient,
+		twitchSecret: twitchSecret,
 		kvDV:         kvDB,
 		channelStore: stores.NewChannelStore(kvDB),
 		heroStore:    stores.NewHeroStore(kvDB),

@@ -13,11 +13,13 @@ import (
 )
 
 func main() {
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+
 	level, err := zerolog.ParseLevel(GetEnv("LOG_LEVEL", "info"))
 	if err != nil {
 		log.Fatal().Str("ctx", "main").Err(err).Msg("Invalid log level")
 	}
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr}).Level(level)
+	log.Logger = log.Logger.Level(level)
 
 	port, err := strconv.Atoi(GetEnv("PORT", "50051"))
 	if err != nil {
@@ -34,10 +36,26 @@ func main() {
 		log.Fatal().Str("ctx", "main").Err(err).Msg("SECRET must be a base64 encoded value")
 	}
 
+	twitchClient := GetEnv("TWITCH_CLIENT", "")
+	twitchSecret := GetEnv("TWITCH_SECRET", "")
+	if len(twitchClient) <= 0 {
+		log.Fatal().Str("ctx", "main").Msg("TWITCH_CLIENT must be set")
+	}
+	if len(twitchSecret) <= 0 {
+		log.Fatal().Str("ctx", "main").Msg("TWITCH_SECRET must be set")
+	}
+
 	kvDB := &db.KvDB{
 		DBPath: GetEnv("DB_LOC", "run/db"),
 	}
-	srv := server.CreateNewServer(kvDB, GetEnv("HOST", ""), port, secret)
+	srv := server.CreateNewServer(kvDB,
+		GetEnv("HOST", ""),
+		port,
+		GetEnv("ISSUER", "gorymoon.se"),
+		secret,
+		twitchClient,
+		twitchSecret)
+
 	defer srv.Shutdown()
 
 	// Setups a signal to listen for termination

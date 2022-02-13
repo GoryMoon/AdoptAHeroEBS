@@ -8,9 +8,13 @@ package blt.adoptahero;
 import "herodata.proto";
 
 service Frontend {
+  rpc RequestServiceJWT(RequestJWTMessage) returns (JWTResponse) {}
+
   rpc GetHeroData(RequestHeroMessage) returns (HeroData) {}
   rpc GetConnectionStatus(ConnectionStatusMessage) returns (ConnectionStatusResponse) {}
-  rpc RequestGameJWT(RequestJWTMessage) returns (JWTResponse) {}
+
+  rpc NewGameJWT(RequestGameJWTMessage) returns (JWTResponse) {}
+  rpc GetGameJWT(RequestGameJWTMessage) returns (JWTResponse) {}
 }
 
 message RequestHeroMessage {
@@ -28,9 +32,10 @@ message ConnectionStatusResponse {
 }
 
 message RequestJWTMessage {
-  string channel = 1;
-  string name = 2;
+  string token = 1;
 }
+
+message RequestGameJWTMessage {}
 
 message JWTResponse {
   string token = 1;

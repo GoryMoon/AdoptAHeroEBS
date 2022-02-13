@@ -3,6 +3,8 @@ package server
 import (
 	"context"
 	"fmt"
+	"github.com/golang-jwt/jwt/v4"
+	jwt2 "github.com/gorymoon/adoptahero-ebs/internal/jwt"
 	pb "github.com/gorymoon/adoptahero-ebs/internal/protos"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc/codes"
@@ -15,7 +17,7 @@ func (s *Server) UpdateData(stream pb.GameConnection_UpdateDataServer) error {
 	startTime := time.Now()
 	heroes := make(map[string]*pb.HeroData)
 	ctx := stream.Context()
-	channel := GetChannelFromContext(ctx)
+	channel := GetGameClaimFromContext(ctx).Subject
 	err := s.channelStore.SetConnectionOnChannel(channel, true)
 	if err != nil {
 		return status.Error(codes.Internal, err.Error())
@@ -72,7 +74,7 @@ func (s *Server) UpdateData(stream pb.GameConnection_UpdateDataServer) error {
 func (s *Server) RemoveHeroes(stream pb.GameConnection_RemoveHeroesServer) error {
 	startTime := time.Now()
 	var names []string
-	channel := GetChannelFromContext(stream.Context())
+	channel := GetGameClaimFromContext(stream.Context())
 
 	for {
 		msg, err := stream.Recv()
@@ -95,10 +97,20 @@ func (s *Server) RemoveHeroes(stream pb.GameConnection_RemoveHeroesServer) error
 	}
 }
 
-func GetChannelFromContext(ctx context.Context) string {
-	value := ctx.Value(ContextKeyChannelId{})
+func GetGameClaimFromContext(ctx context.Context) *jwt.RegisteredClaims {
+	value := ctx.Value(ContextKeyGameClaim{})
 	if value == nil {
-		log.Fatal().Str("ctx", "game").Msg("Metadata error")
+		log.Error().Str("ctx", "game").Msg("Channel id metadata error")
+		return nil
 	}
-	return value.(string)
+	return value.(*jwt.RegisteredClaims)
+}
+
+func GetFrontendClaimFromContext(ctx context.Context) *jwt2.FrontendJWT {
+	name := ctx.Value(ContextKeyFrontendClaim{})
+	if name == nil {
+		log.Error().Str("ctx", "game").Msg("Channel name metadata error")
+		return nil
+	}
+	return name.(*jwt2.FrontendJWT)
 }
