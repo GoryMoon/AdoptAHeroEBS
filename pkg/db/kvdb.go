@@ -3,6 +3,7 @@ package db
 import (
 	"errors"
 	"github.com/dgraph-io/badger/v3"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"strings"
 	"time"
@@ -20,7 +21,7 @@ func (b *KvDB) Open() error {
 	dbOpts.IndexCacheSize = 128 << 20   // 128MB
 	dbOpts.BaseTableSize = 8 << 20      // 8MB
 	dbOpts.CompactL0OnClose = true
-	dbOpts.Logger = &ZeroLogger{}
+	dbOpts.Logger = &ZeroLogger{Logger: log.Logger}
 
 	db, err := badger.Open(dbOpts)
 	if err != nil {
@@ -54,20 +55,22 @@ func (b *KvDB) RunGC() {
 	}
 }
 
-type ZeroLogger struct{}
+type ZeroLogger struct {
+	zerolog.Logger
+}
 
 func (z *ZeroLogger) Errorf(s string, i ...interface{}) {
-	log.Error().Str("ctx", "badger").Msgf(strings.TrimSuffix(s, "\n"), i...)
+	z.Error().Str("ctx", "badger").Msgf(strings.TrimSuffix(s, "\n"), i...)
 }
 
 func (z *ZeroLogger) Warningf(s string, i ...interface{}) {
-	log.Warn().Str("ctx", "badger").Msgf(strings.TrimSuffix(s, "\n"), i...)
+	z.Warn().Str("ctx", "badger").Msgf(strings.TrimSuffix(s, "\n"), i...)
 }
 
 func (z *ZeroLogger) Infof(s string, i ...interface{}) {
-	log.Info().Str("ctx", "badger").Msgf(strings.TrimSuffix(s, "\n"), i...)
+	z.Info().Str("ctx", "badger").Msgf(strings.TrimSuffix(s, "\n"), i...)
 }
 
 func (z *ZeroLogger) Debugf(s string, i ...interface{}) {
-	log.Debug().Str("ctx", "badger").Msgf(strings.TrimSuffix(s, "\n"), i...)
+	z.Debug().Str("ctx", "badger").Msgf(strings.TrimSuffix(s, "\n"), i...)
 }

@@ -13,7 +13,11 @@ import (
 )
 
 func main() {
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+	level, err := zerolog.ParseLevel(GetEnv("LOG_LEVEL", "info"))
+	if err != nil {
+		log.Fatal().Str("ctx", "main").Err(err).Msg("Invalid log level")
+	}
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr}).Level(level)
 
 	port, err := strconv.Atoi(GetEnv("PORT", "50051"))
 	if err != nil {
