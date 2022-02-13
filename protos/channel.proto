@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+option csharp_namespace = "BLTAdoptAHeroConnection.Proto";
+option go_package = "github.com/gorymoon/adoptahero-ebs/internal/protos";
+
+package blt.adoptahero;
+
+message Channel {
+  string id = 1;
+  string name = 2;
+  string uuid = 3;
+  bool connected = 4;
+}

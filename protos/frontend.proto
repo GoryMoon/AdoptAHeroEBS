@@ -1,0 +1,37 @@
+﻿syntax = "proto3";
+
+option csharp_namespace = "BLTAdoptAHeroConnection.Proto";
+option go_package = "github.com/gorymoon/adoptahero-ebs/internal/protos";
+
+package blt.adoptahero;
+
+import "herodata.proto";
+
+service Frontend {
+  rpc GetHeroData(RequestHeroMessage) returns (HeroData) {}
+  rpc GetConnectionStatus(ConnectionStatusMessage) returns (ConnectionStatusResponse) {}
+  rpc RequestGameJWT(RequestJWTMessage) returns (JWTResponse) {}
+}
+
+message RequestHeroMessage {
+  string channel = 1;
+  string name = 2;
+}
+
+message ConnectionStatusMessage {
+  string channel = 1;
+}
+
+message ConnectionStatusResponse {
+  string channel = 1;
+  bool connected = 2;
+}
+
+message RequestJWTMessage {
+  string channel = 1;
+  string name = 2;
+}
+
+message JWTResponse {
+  string token = 1;
+}

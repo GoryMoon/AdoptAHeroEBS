@@ -1,0 +1,27 @@
+﻿syntax = "proto3";
+
+option csharp_namespace = "BLTAdoptAHeroConnection.Proto";
+option go_package = "github.com/gorymoon/adoptahero-ebs/internal/protos";
+
+package blt.adoptahero;
+
+import "herodata.proto";
+
+service GameConnection {
+  rpc UpdateData(stream UpdateHeroMessage) returns (stream CountResponse) {}
+  rpc RemoveHeroes(stream RemoveHeroMessage) returns (CountResponse) {}
+}
+
+message UpdateHeroMessage {
+  HeroData data = 1;
+  bool batch_done = 2;
+}
+
+message RemoveHeroMessage {
+  string name = 1;
+}
+
+message CountResponse {
+  int32 count = 1;
+  int32 elapsed_time = 2;
+}
