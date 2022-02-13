@@ -6,7 +6,6 @@ import (
 	pb "github.com/gorymoon/adoptahero-ebs/internal/protos"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"io"
 	"time"
@@ -27,14 +26,14 @@ func (s *Server) UpdateData(stream pb.GameConnection_UpdateDataServer) error {
 	for running {
 		select {
 		case <-ctx.Done():
-			running = true
+			running = false
 			continue
 		default:
 		}
 
 		msg, err := stream.Recv()
 		if err == io.EOF {
-			running = true
+			running = false
 			continue
 		}
 		if err != nil {
@@ -97,9 +96,9 @@ func (s *Server) RemoveHeroes(stream pb.GameConnection_RemoveHeroesServer) error
 }
 
 func GetChannelFromContext(ctx context.Context) string {
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
+	value := ctx.Value(ContextKeyChannelId{})
+	if value == nil {
 		log.Fatal().Str("ctx", "game").Msg("Metadata error")
 	}
-	return md.Get("channel")[0]
+	return value.(string)
 }

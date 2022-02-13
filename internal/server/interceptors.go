@@ -9,8 +9,37 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	"strings"
 	"time"
 )
+
+const (
+	authHeaderPrefix string = "Bearer "
+)
+
+type ContextKeyChannelId struct{}
+
+type StreamContextWrapper interface {
+	grpc.ServerStream
+	SetContext(context.Context)
+}
+
+type wrappedContextStream struct {
+	grpc.ServerStream
+	ctx context.Context
+}
+
+func newWrappedContextStream(s grpc.ServerStream) StreamContextWrapper {
+	return &wrappedContextStream{s, s.Context()}
+}
+
+func (w *wrappedContextStream) Context() context.Context {
+	return w.ctx
+}
+
+func (w *wrappedContextStream) SetContext(ctx context.Context) {
+	w.ctx = ctx
+}
 
 func (s *Server) unaryAuthInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
 	start := time.Now()
@@ -31,11 +60,13 @@ func (s *Server) unaryAuthInterceptor(ctx context.Context, req interface{}, info
 func (s *Server) streamAuthInterceptor(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 	start := time.Now()
 
-	if err := s.authorize(stream.Context()); err != nil {
+	w := newWrappedContextStream(stream)
+
+	if err := s.authorize(w); err != nil {
 		return err
 	}
 
-	err := handler(srv, stream)
+	err := handler(srv, w)
 
 	log.Info().
 		Str("ctx", "interceptor").
@@ -47,8 +78,8 @@ func (s *Server) streamAuthInterceptor(srv interface{}, stream grpc.ServerStream
 	return err
 }
 
-func (s *Server) authorize(ctx context.Context) error {
-	md, ok := metadata.FromIncomingContext(ctx)
+func (s *Server) authorize(w StreamContextWrapper) error {
+	md, ok := metadata.FromIncomingContext(w.Context())
 	if !ok {
 		return status.Errorf(codes.InvalidArgument, "Retrieving metadata is failed")
 	}
@@ -58,7 +89,7 @@ func (s *Server) authorize(ctx context.Context) error {
 		return status.Errorf(codes.Unauthenticated, "Authorization token is not supplied")
 	}
 
-	token := authHeader[0]
+	token := strings.TrimPrefix(authHeader[0], authHeaderPrefix)
 	claims, err := jwt.VerifyGameJWT(token, s.secret)
 
 	if err != nil {
@@ -71,9 +102,9 @@ func (s *Server) authorize(ctx context.Context) error {
 	}
 
 	if subtle.ConstantTimeCompare([]byte(claims.ID), []byte(channel.Uuid)) == 0 {
-		return status.Error(codes.Unauthenticated, "")
+		return status.Error(codes.Unauthenticated, "token doesn't match")
 	}
 
-	md.Set("channelID", channel.Id)
+	w.SetContext(context.WithValue(w.Context(), ContextKeyChannelId{}, channel.Id))
 	return nil
 }

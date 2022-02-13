@@ -35,7 +35,7 @@ func (s *Server) GetConnectionStatus(_ context.Context, msg *pb.ConnectionStatus
 }
 
 func (s *Server) RequestGameJWT(_ context.Context, msg *pb.RequestJWTMessage) (*pb.JWTResponse, error) {
-	uuidToken := uuid.New().String()
+	uuidToken := uuid.NewString()
 
 	channel, err := s.channelStore.GetChannel(msg.Channel)
 	if err != nil {
@@ -48,6 +48,7 @@ func (s *Server) RequestGameJWT(_ context.Context, msg *pb.RequestJWTMessage) (*
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
 	} else {
+		channel.Uuid = uuidToken
 		err = s.channelStore.SetChannel(msg.GetChannel(), channel)
 		if err != nil {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
