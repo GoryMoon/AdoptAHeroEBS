@@ -39,12 +39,15 @@ func (s *Server) UpdateData(stream pb.GameConnection_UpdateDataServer) error {
 			continue
 		}
 		if err != nil {
-			log.Fatal().Str("ctx", "game").Err(err).Msg("Error receiving hero data")
+			log.Error().Str("ctx", "game").Err(err).Msg("Error receiving hero data")
 			continue
 		}
 
 		// If the current batch is done store it
 		if msg.GetBatchDone() {
+			for k := range heroes {
+				log.Info().Str("hero", k).Msgf("Updating hero")
+			}
 			err := s.heroStore.SetHeroes(heroes)
 			if err != nil {
 				return status.Error(codes.InvalidArgument, err.Error())
