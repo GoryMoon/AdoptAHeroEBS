@@ -10,6 +10,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"io"
+	"strconv"
 	"time"
 )
 
@@ -45,9 +46,7 @@ func (s *Server) UpdateData(stream pb.GameConnection_UpdateDataServer) error {
 
 		// If the current batch is done store it
 		if msg.GetBatchDone() {
-			for k := range heroes {
-				log.Info().Str("hero", k).Msgf("Updating hero")
-			}
+			log.Info().Str("channel", channel).Str("count", strconv.Itoa(len(heroes))).Msgf("Updating heros")
 			err := s.heroStore.SetHeroes(heroes)
 			if err != nil {
 				return status.Error(codes.InvalidArgument, err.Error())

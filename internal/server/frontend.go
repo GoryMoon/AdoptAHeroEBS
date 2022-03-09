@@ -8,7 +8,6 @@ import (
 	"github.com/gorymoon/adoptahero-ebs/internal/jwt"
 	pb "github.com/gorymoon/adoptahero-ebs/internal/protos"
 	"github.com/nicklaw5/helix"
-	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -35,7 +34,6 @@ func (s *Server) GetHeroData(_ context.Context, msg *pb.RequestHeroMessage) (*pb
 	key := fmt.Sprintf("%s_%s", msg.GetChannel(), msg.GetName())
 
 	hero, err := s.heroStore.GetHero(key)
-	log.Info().Str("hero", key).Msg("Requesting hero")
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
